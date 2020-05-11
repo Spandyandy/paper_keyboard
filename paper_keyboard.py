@@ -4,7 +4,6 @@ import cv2
 import time
 
 
-
 class CaptureCam:
 
     def __init__(self):
@@ -92,6 +91,12 @@ while True:
         # if time.time() - start_time > 1:
         if writing:
             pressed_output.write("{}\n".format(7-cell+1))
+            pressed_output.flush()
+            # pressed_output.close()
+
+            p_out = open("pressed_keys.txt", "r")
+            print(p_out.readlines()[-1])
+            p_out.close()
             print("PRESSED:", 7-cell+1)
 
 
@@ -104,12 +109,9 @@ while True:
         captured = True
         writing = True
 
-    if pressed_key == ord("s"):
-        writing = False
+    elif pressed_key == 27:  # press ESC to exit
         pressed_output.write("stopped playing")
         pressed_output.close()
-
-    elif pressed_key == 27:  # press ESC to exit
         video.release()
         cv2.destroyAllWindows()
         break
