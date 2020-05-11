@@ -9,6 +9,8 @@ class CaptureCam:
     def __init__(self):
         self.video_capture = cv2.VideoCapture(0)
         self.current_frame = self.video_capture.read()[1]
+        fps = self.video_capture.get(cv2.CAP_PROP_FPS)
+        print("fps", fps)
 
     # create thread for capturing images
     def start(self):
@@ -43,66 +45,72 @@ captured = False
 MORPH = 7
 CANNY = 250
 pressed_output = open('pressed_keys.txt', 'a')
-while True:
 
+frame_rate = 3
+prev = 0
+while True:
     # current frame
+    time_elapsed = time.time() - prev
     start_time = time.time()
     frame = video.get_current_frame()
 
-    cv2.rectangle(frame, (top, left), (bottom, right), (0, 255, 0), 2)
-    cv2.imshow("original", frame)
+    if time_elapsed > 1/frame_rate:
+        prev = time.time()
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    gray = cv2.bilateralFilter(gray, 1, 10, 120)
+        cv2.rectangle(frame, (top, left), (bottom, right), (0, 255, 0), 2)
+        cv2.imshow("original", frame)
 
-    edges = cv2.Canny(gray, 10, CANNY)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (MORPH, MORPH))
-    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.bilateralFilter(gray, 1, 10, 120)
 
-    _, contours, h = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    max_area = 0
-    max_approx = None
+        edges = cv2.Canny(gray, 10, CANNY)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (MORPH, MORPH))
+        closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
 
-    for cont in contours:
+        _, contours, h = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        max_area = 0
+        max_approx = None
 
-        arc_len = cv2.arcLength(cont, True)
+        for cont in contours:
 
-        approx = cv2.approxPolyDP(cont, 0.1 * arc_len, True)
-        bounding_rec = cv2.boundingRect(approx)
-        if len(approx) == 4:
-            # print("rectangle!")
-            if cv2.contourArea(cont) > max_area:
-                max_area = cv2.contourArea(cont)
-                max_approx = approx
-                max_bbox = bounding_rec
+            arc_len = cv2.arcLength(cont, True)
 
-    if max_approx is not None:
-        cv2.drawContours(frame, [max_approx], -1, (255, 0, 0), 2)
+            approx = cv2.approxPolyDP(cont, 0.1 * arc_len, True)
+            bounding_rec = cv2.boundingRect(approx)
+            if len(approx) == 4:
+                # print("rectangle!")
+                if cv2.contourArea(cont) > max_area:
+                    max_area = cv2.contourArea(cont)
+                    max_approx = approx
+                    max_bbox = bounding_rec
 
-    if captured:
-        # boxed region for keyboard
-        frame = frame[left:right, top:bottom]
-        cv2.imshow("img cropped", frame)
+        if max_approx is not None:
+            cv2.drawContours(frame, [max_approx], -1, (255, 0, 0), 2)
 
-        # use motion detection to get active cell
-        cell = detection.get_pressed(frame)
-        if cell is None:
-            continue
-        # if time.time() - start_time > 1:
-        if writing:
-            pressed_output.write("{}\n".format(7-cell+1))
-            pressed_output.flush()
-            # pressed_output.close()
+        if captured:
+            # boxed region for keyboard
+            frame = frame[left:right, top:bottom]
+            cv2.imshow("img cropped", frame)
 
-            p_out = open("pressed_keys.txt", "r")
-            print(p_out.readlines()[-1])
-            p_out.close()
-            print("PRESSED:", 7-cell+1)
+            # use motion detection to get active cell
+            cell = detection.get_pressed(frame)
+            if cell is None:
+                continue
+            # if time.time() - start_time > 1:
+            if writing:
+                pressed_output.write("{}\n".format(7-cell+1))
+                pressed_output.flush()
+                # pressed_output.close()
+
+                p_out = open("pressed_keys.txt", "r")
+                print(p_out.readlines()[-1])
+                p_out.close()
+                print("PRESSED:", 7-cell+1)
 
 
     # sleeping for 1 second
     # to not detect hand moving
-    time.sleep(1.0 - time.time() + start_time)
+    # time.sleep(1 - time.time() + start_time)
 
     pressed_key = cv2.waitKey(10)
     if pressed_key == ord("b"):
